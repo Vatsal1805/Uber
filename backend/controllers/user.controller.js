@@ -1,7 +1,7 @@
 const user= require('../models/user.model.js');
 const userService=require('../services/user.service.js');
 const {validationResult} = require('express-validator');
-
+const BlacklistToken = require('../models/blacklistToken.model.js');
 
 module.exports.registerUser = async (req, res,next) => {
     console.log('Request Body:', req.body); // ✅ Check what you are receiving
@@ -50,8 +50,29 @@ module.exports.loginUser=async (req, res) => {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
         const token = await userInstance.generateAuthToken();
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Set to true in production
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
+        });
         res.status(200).json({token, userInstance});
+
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
+}
+
+module.exports.getUserProfile=async (req, res) => {
+    res.status(200).json({user:req.user});
+    // The user is already attached to the request object by the auth middleware
+
+}
+
+module.exports.logoutUser=async (req, res) => {
+    res.clearCookie('token');
+    const token = req.cookies.token || req.headers.authorization.split(' ')[1];
+    await BlacklistToken.create({ token });
+    // Optionally, you can also remove the token from the database if you have a blacklist mechanism
+    res.status(200).json({message:'Logged out successfully'});
 }
