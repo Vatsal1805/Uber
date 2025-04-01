@@ -69,10 +69,22 @@ module.exports.getUserProfile=async (req, res) => {
 
 }
 
-module.exports.logoutUser=async (req, res) => {
-    res.clearCookie('token');
-    const token = req.cookies.token || req.headers.authorization.split(' ')[1];
-    await BlacklistToken.create({ token });
-    // Optionally, you can also remove the token from the database if you have a blacklist mechanism
-    res.status(200).json({message:'Logged out successfully'});
-}
+module.exports.logoutUser = async (req, res) => {
+    try {
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+
+        if (!token) {
+            return res.status(400).json({ message: 'No token provided' });
+        }
+
+        // Blacklist the token
+        await BlacklistToken.create({ token });
+
+        // Clear the cookie (if using cookies)
+        res.clearCookie('token');
+
+        res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
